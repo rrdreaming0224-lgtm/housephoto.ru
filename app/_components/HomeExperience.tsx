@@ -2,13 +2,8 @@
 
 import Link from "next/link";
 import { useLayoutEffect, useRef, useState } from "react";
-import gsap from "gsap";
-import { useGSAP } from "@gsap/react";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { MediaPicture } from "./MediaPicture";
 import { PriceCalculator } from "./PriceCalculator";
-
-gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const videoFormats = [
   {
@@ -56,57 +51,67 @@ function IntroLoader() {
     const chosen = chosenRef.current;
     if (!loader || !track || !chosen) return;
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const seen = window.sessionStorage.getItem("housephoto-intro");
-    if (seen || reduced) {
-      gsap.set(loader, { display: "none" });
-      return;
-    }
+    let cancelled = false;
+    let cleanupAnimation: (() => void) | undefined;
 
-    document.documentElement.classList.add("intro-running");
-    const centerChosen = () => window.innerWidth / 2 - (chosen.offsetLeft + chosen.offsetWidth / 2);
+    void import("gsap").then(({ default: gsap }) => {
+      if (cancelled) return;
 
-    const timeline = gsap.timeline({
-      defaults: { ease: "power3.inOut" },
-      onComplete: () => {
-        window.sessionStorage.setItem("housephoto-intro", "seen");
-        document.documentElement.classList.remove("intro-running");
-      },
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const seen = window.sessionStorage.getItem("housephoto-intro");
+      if (seen || reduced) {
+        gsap.set(loader, { display: "none" });
+        return;
+      }
+
+      document.documentElement.classList.add("intro-running");
+      const centerChosen = () => window.innerWidth / 2 - (chosen.offsetLeft + chosen.offsetWidth / 2);
+
+      const timeline = gsap.timeline({
+        defaults: { ease: "power3.inOut" },
+        onComplete: () => {
+          window.sessionStorage.setItem("housephoto-intro", "seen");
+          document.documentElement.classList.remove("intro-running");
+        },
+      });
+
+      timeline
+        .fromTo(".intro-card", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.06 })
+        .fromTo(track, { x: centerChosen() + 180 }, { x: centerChosen(), duration: 0.9 }, 0.12)
+        .add(() => {
+          const rect = chosen.getBoundingClientRect();
+          const clone = chosen.cloneNode(true) as HTMLDivElement;
+          clone.classList.add("intro-card--clone");
+          Object.assign(clone.style, {
+            position: "fixed",
+            top: `${rect.top}px`,
+            left: `${rect.left}px`,
+            width: `${rect.width}px`,
+            height: `${rect.height}px`,
+            margin: "0",
+            zIndex: "3",
+          });
+          loader.appendChild(clone);
+          gsap.to(track, { opacity: 0, duration: 0.3 });
+          gsap.to(clone, {
+            top: 0,
+            left: 0,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            borderRadius: 0,
+            duration: 1.05,
+            ease: "expo.inOut",
+            onComplete: () => clone.remove(),
+          });
+        })
+        .to(loader, { opacity: 0, duration: 0.38, delay: 0.9, display: "none" });
+
+      cleanupAnimation = () => timeline.kill();
     });
 
-    timeline
-      .fromTo(".intro-card", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.06 })
-      .fromTo(track, { x: centerChosen() + 180 }, { x: centerChosen(), duration: 0.9 }, 0.12)
-      .add(() => {
-        const rect = chosen.getBoundingClientRect();
-        const clone = chosen.cloneNode(true) as HTMLDivElement;
-        clone.classList.add("intro-card--clone");
-        Object.assign(clone.style, {
-          position: "fixed",
-          top: `${rect.top}px`,
-          left: `${rect.left}px`,
-          width: `${rect.width}px`,
-          height: `${rect.height}px`,
-          margin: "0",
-          zIndex: "3",
-        });
-        loader.appendChild(clone);
-        gsap.to(track, { opacity: 0, duration: 0.3 });
-        gsap.to(clone, {
-          top: 0,
-          left: 0,
-          width: window.innerWidth,
-          height: window.innerHeight,
-          borderRadius: 0,
-          duration: 1.05,
-          ease: "expo.inOut",
-          onComplete: () => clone.remove(),
-        });
-      })
-      .to(loader, { opacity: 0, duration: 0.38, delay: 0.9, display: "none" });
-
     return () => {
-      timeline.kill();
+      cancelled = true;
+      cleanupAnimation?.();
       document.documentElement.classList.remove("intro-running");
     };
   }, []);
@@ -154,61 +159,80 @@ function ArrowLink({ href, children }: { href: string; children: React.ReactNode
 export function HomeExperience() {
   const rootRef = useRef<HTMLElement>(null);
 
-  useGSAP(() => {
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) return;
+  useLayoutEffect(() => {
+    let cancelled = false;
+    let cleanupAnimation: (() => void) | undefined;
 
-    gsap.from(".hero__eyebrow, .hero__title, .hero__bottom", {
-      opacity: 0,
-      y: 28,
-      duration: 1,
-      stagger: 0.12,
-      delay: 1.7,
-      ease: "power3.out",
+    void Promise.all([import("gsap"), import("gsap/ScrollTrigger")]).then(([gsapModule, scrollTriggerModule]) => {
+      if (cancelled || !rootRef.current) return;
+      const gsap = gsapModule.default;
+      const ScrollTrigger = scrollTriggerModule.ScrollTrigger;
+      gsap.registerPlugin(ScrollTrigger);
+
+      const context = gsap.context(() => {
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduced) return;
+
+        gsap.from(".hero__eyebrow, .hero__title, .hero__bottom", {
+          opacity: 0,
+          y: 28,
+          duration: 1,
+          stagger: 0.12,
+          delay: 1.7,
+          ease: "power3.out",
+        });
+
+        gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((element) => {
+          gsap.from(element, {
+            opacity: 0,
+            y: 54,
+            duration: 1,
+            ease: "power3.out",
+            scrollTrigger: { trigger: element, start: "top 84%", once: true },
+          });
+        });
+
+        gsap.utils.toArray<HTMLElement>(".photo-frame img").forEach((image) => {
+          gsap.fromTo(image, { scale: 1.08 }, {
+            scale: 1,
+            ease: "none",
+            scrollTrigger: { trigger: image.closest(".photo-frame"), start: "top bottom", end: "bottom top", scrub: true },
+          });
+        });
+
+        const statement = gsap.timeline({
+          scrollTrigger: {
+            trigger: ".statement-stage",
+            start: "top top",
+            end: "+=130%",
+            scrub: 0.5,
+            pin: ".statement-stage__inner",
+          },
+        });
+        statement
+          .fromTo(".statement--photo", { opacity: 0, y: 45 }, { opacity: 1, y: 0, duration: 0.35 })
+          .to(".statement--photo", { opacity: 0, y: -35, duration: 0.25 }, "+=0.3")
+          .fromTo(".statement--video", { opacity: 0, y: 45 }, { opacity: 1, y: 0, duration: 0.35 })
+          .to(".statement-stage__line", { scaleX: 1, duration: 1 }, 0);
+
+        gsap.from(".video-card", {
+          opacity: 0,
+          y: 80,
+          stagger: 0.12,
+          duration: 1,
+          ease: "power3.out",
+          scrollTrigger: { trigger: ".video-grid", start: "top 78%", once: true },
+        });
+      }, rootRef);
+
+      cleanupAnimation = () => context.revert();
     });
 
-    gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((element) => {
-      gsap.from(element, {
-        opacity: 0,
-        y: 54,
-        duration: 1,
-        ease: "power3.out",
-        scrollTrigger: { trigger: element, start: "top 84%", once: true },
-      });
-    });
-
-    gsap.utils.toArray<HTMLElement>(".photo-frame img").forEach((image) => {
-      gsap.fromTo(image, { scale: 1.08 }, {
-        scale: 1,
-        ease: "none",
-        scrollTrigger: { trigger: image.closest(".photo-frame"), start: "top bottom", end: "bottom top", scrub: true },
-      });
-    });
-
-    const statement = gsap.timeline({
-      scrollTrigger: {
-        trigger: ".statement-stage",
-        start: "top top",
-        end: "+=130%",
-        scrub: 0.5,
-        pin: ".statement-stage__inner",
-      },
-    });
-    statement
-      .fromTo(".statement--photo", { opacity: 0, y: 45 }, { opacity: 1, y: 0, duration: 0.35 })
-      .to(".statement--photo", { opacity: 0, y: -35, duration: 0.25 }, "+=0.3")
-      .fromTo(".statement--video", { opacity: 0, y: 45 }, { opacity: 1, y: 0, duration: 0.35 })
-      .to(".statement-stage__line", { scaleX: 1, duration: 1 }, 0);
-
-    gsap.from(".video-card", {
-      opacity: 0,
-      y: 80,
-      stagger: 0.12,
-      duration: 1,
-      ease: "power3.out",
-      scrollTrigger: { trigger: ".video-grid", start: "top 78%", once: true },
-    });
-  }, { scope: rootRef });
+    return () => {
+      cancelled = true;
+      cleanupAnimation?.();
+    };
+  }, []);
 
   return (
     <main ref={rootRef}>
