@@ -19,6 +19,7 @@
 
 html {
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
   background: var(--paper);
 }
 
@@ -138,19 +139,14 @@ h2 { font-size: clamp(42px, 6.4vw, 104px); line-height: 0.98; }
 }
 .intro-card img { will-change: transform; }
 .intro__cover {
-  --clip-top: 50%;
-  --clip-right: 50%;
-  --clip-bottom: 50%;
-  --clip-left: 50%;
-  --clip-radius: 6px;
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
   z-index: 3;
   overflow: hidden;
   opacity: 0;
-  clip-path: inset(var(--clip-top) var(--clip-right) var(--clip-bottom) var(--clip-left) round var(--clip-radius));
   pointer-events: none;
-  will-change: clip-path, opacity;
+  will-change: transform, width, height, opacity;
 }
 .intro__cover img { object-position: center; }
 .intro__status {

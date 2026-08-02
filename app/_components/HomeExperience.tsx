@@ -134,21 +134,23 @@ function IntroLoader() {
     void import("gsap").then(({ default: gsap }) => {
       if (cancelled) return;
 
-      const centerChosen = () => window.innerWidth / 2 - (chosen.offsetLeft + chosen.offsetWidth / 2);
+      const viewportWidth = document.documentElement.clientWidth;
+      const viewportHeight = document.documentElement.clientHeight;
+      const centerChosen = () => viewportWidth / 2 - (chosen.offsetLeft + chosen.offsetWidth / 2);
       const cards = Array.from(track.querySelectorAll<HTMLElement>(".intro-card"));
       const loadingLine = loader.querySelector<HTMLElement>(".intro__loading-line");
       const rect = chosen.getBoundingClientRect();
-      const centeredLeft = (window.innerWidth - rect.width) / 2;
+      const centeredLeft = (viewportWidth - rect.width) / 2;
 
-      gsap.set(track, { x: centerChosen() + Math.min(180, window.innerWidth * 0.18), opacity: 0 });
+      gsap.set(track, { x: centerChosen() + Math.min(180, viewportWidth * 0.18), opacity: 0 });
       gsap.set(cards, { opacity: 0, y: 22 });
       gsap.set(cover, {
         opacity: 0,
-        "--clip-top": `${rect.top}px`,
-        "--clip-right": `${centeredLeft}px`,
-        "--clip-bottom": `${window.innerHeight - rect.bottom}px`,
-        "--clip-left": `${centeredLeft}px`,
-        "--clip-radius": "6px",
+        x: centeredLeft,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+        borderRadius: 6,
       });
 
       const timeline = gsap.timeline({
@@ -165,11 +167,11 @@ function IntroLoader() {
         .to(cover, { opacity: 1, duration: 0.18, ease: "none" }, 0.86)
         .to([track, brand, status], { opacity: 0, duration: 0.24, ease: "power2.out" }, 0.88)
         .to(cover, {
-          "--clip-top": "0px",
-          "--clip-right": "0px",
-          "--clip-bottom": "0px",
-          "--clip-left": "0px",
-          "--clip-radius": "0px",
+          x: 0,
+          y: 0,
+          width: viewportWidth,
+          height: viewportHeight,
+          borderRadius: 0,
           duration: 1.08,
           ease: "expo.inOut",
         }, 0.96)
