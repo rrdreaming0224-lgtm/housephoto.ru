@@ -136,13 +136,20 @@ function IntroLoader() {
 
       const centerChosen = () => window.innerWidth / 2 - (chosen.offsetLeft + chosen.offsetWidth / 2);
       const cards = Array.from(track.querySelectorAll<HTMLElement>(".intro-card"));
+      const loadingLine = loader.querySelector<HTMLElement>(".intro__loading-line");
       const rect = chosen.getBoundingClientRect();
       const centeredLeft = (window.innerWidth - rect.width) / 2;
-      const startClip = `inset(${rect.top}px ${centeredLeft}px ${window.innerHeight - rect.bottom}px ${centeredLeft}px round 6px)`;
 
       gsap.set(track, { x: centerChosen() + Math.min(180, window.innerWidth * 0.18), opacity: 0 });
       gsap.set(cards, { opacity: 0, y: 22 });
-      gsap.set(cover, { opacity: 0, clipPath: startClip });
+      gsap.set(cover, {
+        opacity: 0,
+        "--clip-top": `${rect.top}px`,
+        "--clip-right": `${centeredLeft}px`,
+        "--clip-bottom": `${window.innerHeight - rect.bottom}px`,
+        "--clip-left": `${centeredLeft}px`,
+        "--clip-radius": "6px",
+      });
 
       const timeline = gsap.timeline({
         onComplete: () => {
@@ -151,12 +158,21 @@ function IntroLoader() {
       });
 
       timeline
+        .to(loadingLine, { opacity: 0, duration: 0.16, ease: "none" }, 0)
         .set(track, { opacity: 1 })
         .to(cards, { opacity: 1, y: 0, duration: 0.42, stagger: 0.055, ease: "power2.out" }, 0)
         .to(track, { x: centerChosen(), duration: 0.92, ease: "power3.inOut" }, 0.06)
         .to(cover, { opacity: 1, duration: 0.18, ease: "none" }, 0.86)
         .to([track, brand, status], { opacity: 0, duration: 0.24, ease: "power2.out" }, 0.88)
-        .to(cover, { clipPath: "inset(0px 0px 0px 0px round 0px)", duration: 1.08, ease: "expo.inOut" }, 0.96)
+        .to(cover, {
+          "--clip-top": "0px",
+          "--clip-right": "0px",
+          "--clip-bottom": "0px",
+          "--clip-left": "0px",
+          "--clip-radius": "0px",
+          duration: 1.08,
+          ease: "expo.inOut",
+        }, 0.96)
         .to(loader, { opacity: 0, duration: 0.4, ease: "power2.out" }, 1.98)
         .set(loader, { display: "none" });
 
@@ -178,6 +194,7 @@ function IntroLoader() {
   return (
     <div className="intro" ref={loaderRef} aria-hidden="true">
       <div className="intro__brand" ref={brandRef}>HOUSEPHOTO</div>
+      <i className="intro__loading-line" />
       <div className="intro__track" ref={trackRef}>
         {loaderImages.map((image, index) => (
           <div className="intro-card" ref={index === 2 ? chosenRef : undefined} key={`${image}-${index}`}>

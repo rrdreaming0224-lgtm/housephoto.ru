@@ -106,6 +106,25 @@ h2 { font-size: clamp(42px, 6.4vw, 104px); line-height: 0.98; }
   letter-spacing: -0.03em;
 }
 .intro__track { display: flex; gap: clamp(24px, 4vw, 64px); width: max-content; opacity: 0; will-change: transform, opacity; }
+.intro__loading-line {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 1px;
+  overflow: hidden;
+  transform: translate(-50%, -50%);
+  background: rgba(23,24,21,.13);
+}
+.intro__loading-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: var(--ink);
+  animation: intro-loading-line .9s ease-in-out infinite;
+}
+@keyframes intro-loading-line { to { transform: translateX(100%); } }
 .intro-card {
   flex: 0 0 clamp(118px, 13vw, 205px);
   width: clamp(118px, 13vw, 205px);
@@ -119,11 +138,17 @@ h2 { font-size: clamp(42px, 6.4vw, 104px); line-height: 0.98; }
 }
 .intro-card img { will-change: transform; }
 .intro__cover {
+  --clip-top: 50%;
+  --clip-right: 50%;
+  --clip-bottom: 50%;
+  --clip-left: 50%;
+  --clip-radius: 6px;
   position: fixed;
   inset: 0;
   z-index: 3;
   overflow: hidden;
   opacity: 0;
+  clip-path: inset(var(--clip-top) var(--clip-right) var(--clip-bottom) var(--clip-left) round var(--clip-radius));
   pointer-events: none;
   will-change: clip-path, opacity;
 }
