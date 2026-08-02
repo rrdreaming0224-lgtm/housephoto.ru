@@ -23,6 +23,7 @@ html {
 }
 
 html.intro-running { overflow: hidden; }
+html.intro-skip .intro { display: none; }
 
 body {
   margin: 0;
@@ -104,17 +105,29 @@ h2 { font-size: clamp(42px, 6.4vw, 104px); line-height: 0.98; }
   font-weight: 750;
   letter-spacing: -0.03em;
 }
-.intro__track { display: flex; gap: clamp(24px, 4vw, 64px); width: max-content; will-change: transform; }
+.intro__track { display: flex; gap: clamp(24px, 4vw, 64px); width: max-content; opacity: 0; will-change: transform, opacity; }
 .intro-card {
   flex: 0 0 clamp(118px, 13vw, 205px);
   width: clamp(118px, 13vw, 205px);
   aspect-ratio: 1;
   overflow: hidden;
+  opacity: 0;
+  transform: translateY(22px);
   border-radius: 6px;
   background: var(--paper-deep);
+  will-change: transform, opacity;
 }
 .intro-card img { will-change: transform; }
-.intro-card--clone { overflow: hidden; }
+.intro__cover {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  will-change: clip-path, opacity;
+}
+.intro__cover img { object-position: center; }
 .intro__status {
   position: absolute;
   right: var(--gutter);

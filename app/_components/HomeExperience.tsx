@@ -102,12 +102,18 @@ function IntroLoader() {
   const loaderRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const chosenRef = useRef<HTMLDivElement>(null);
+  const coverRef = useRef<HTMLDivElement>(null);
+  const brandRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     const loader = loaderRef.current;
     const track = trackRef.current;
     const chosen = chosenRef.current;
-    if (!loader || !track || !chosen) return;
+    const cover = coverRef.current;
+    const brand = brandRef.current;
+    const status = statusRef.current;
+    if (!loader || !track || !chosen || !cover || !brand || !status) return;
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const skipRequested = new URLSearchParams(window.location.search).get("skipIntro") === "1";
@@ -118,6 +124,7 @@ function IntroLoader() {
       return;
     }
 
+    document.documentElement.classList.remove("intro-skip");
     window.localStorage.setItem("housephoto-intro-v1", "seen");
     document.documentElement.classList.add("intro-running");
 
@@ -128,46 +135,35 @@ function IntroLoader() {
       if (cancelled) return;
 
       const centerChosen = () => window.innerWidth / 2 - (chosen.offsetLeft + chosen.offsetWidth / 2);
+      const cards = Array.from(track.querySelectorAll<HTMLElement>(".intro-card"));
+      const rect = chosen.getBoundingClientRect();
+      const centeredLeft = (window.innerWidth - rect.width) / 2;
+      const startClip = `inset(${rect.top}px ${centeredLeft}px ${window.innerHeight - rect.bottom}px ${centeredLeft}px round 6px)`;
+
+      gsap.set(track, { x: centerChosen() + Math.min(180, window.innerWidth * 0.18), opacity: 0 });
+      gsap.set(cards, { opacity: 0, y: 22 });
+      gsap.set(cover, { opacity: 0, clipPath: startClip });
 
       const timeline = gsap.timeline({
-        defaults: { ease: "power3.inOut" },
         onComplete: () => {
           document.documentElement.classList.remove("intro-running");
         },
       });
 
       timeline
-        .fromTo(".intro-card", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.06 })
-        .fromTo(track, { x: centerChosen() + 180 }, { x: centerChosen(), duration: 0.9 }, 0.12)
-        .add(() => {
-          const rect = chosen.getBoundingClientRect();
-          const clone = chosen.cloneNode(true) as HTMLDivElement;
-          clone.classList.add("intro-card--clone");
-          Object.assign(clone.style, {
-            position: "fixed",
-            top: `${rect.top}px`,
-            left: `${rect.left}px`,
-            width: `${rect.width}px`,
-            height: `${rect.height}px`,
-            margin: "0",
-            zIndex: "3",
-          });
-          loader.appendChild(clone);
-          gsap.to(track, { opacity: 0, duration: 0.3 });
-          gsap.to(clone, {
-            top: 0,
-            left: 0,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            borderRadius: 0,
-            duration: 1.05,
-            ease: "expo.inOut",
-            onComplete: () => clone.remove(),
-          });
-        })
-        .to(loader, { opacity: 0, duration: 0.38, delay: 0.9, display: "none" });
+        .set(track, { opacity: 1 })
+        .to(cards, { opacity: 1, y: 0, duration: 0.42, stagger: 0.055, ease: "power2.out" }, 0)
+        .to(track, { x: centerChosen(), duration: 0.92, ease: "power3.inOut" }, 0.06)
+        .to(cover, { opacity: 1, duration: 0.18, ease: "none" }, 0.86)
+        .to([track, brand, status], { opacity: 0, duration: 0.24, ease: "power2.out" }, 0.88)
+        .to(cover, { clipPath: "inset(0px 0px 0px 0px round 0px)", duration: 1.08, ease: "expo.inOut" }, 0.96)
+        .to(loader, { opacity: 0, duration: 0.4, ease: "power2.out" }, 1.98)
+        .set(loader, { display: "none" });
 
       cleanupAnimation = () => timeline.kill();
+    }).catch(() => {
+      loader.style.display = "none";
+      document.documentElement.classList.remove("intro-running");
     });
 
     return () => {
@@ -181,7 +177,7 @@ function IntroLoader() {
 
   return (
     <div className="intro" ref={loaderRef} aria-hidden="true">
-      <div className="intro__brand">HOUSEPHOTO</div>
+      <div className="intro__brand" ref={brandRef}>HOUSEPHOTO</div>
       <div className="intro__track" ref={trackRef}>
         {loaderImages.map((image, index) => (
           <div className="intro-card" ref={index === 2 ? chosenRef : undefined} key={`${image}-${index}`}>
@@ -189,7 +185,8 @@ function IntroLoader() {
           </div>
         ))}
       </div>
-      <div className="intro__status"><span>Москва</span><span>Фото · видео · презентации</span></div>
+      <div className="intro__cover" ref={coverRef}><img src="/media/hero-1600.webp" alt="" /></div>
+      <div className="intro__status" ref={statusRef}><span>Москва</span><span>Фото · видео · презентации</span></div>
     </div>
   );
 }
