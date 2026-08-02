@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
 import { services } from "./_data/services";
 
+export const dynamic = "force-static";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://housephoto.ru";
   return [
