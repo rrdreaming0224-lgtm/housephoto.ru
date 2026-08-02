@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type ObjectType = "apartment" | "house" | "commercial";
 type VideoType = "none" | "photo-video" | "film" | "host";
@@ -27,6 +27,42 @@ export function PriceCalculator({ compact = false }: { compact?: boolean }) {
   const [rush, setRush] = useState(false);
   const [showLead, setShowLead] = useState(false);
   const [sent, setSent] = useState(false);
+  const [selectedFromPage, setSelectedFromPage] = useState("");
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const service = url.searchParams.get("service");
+    const labels: Record<string, string> = {
+      photo: "Фотосъёмка",
+      "video-presentation": "Видеопрезентация",
+      "interior-film": "Интерьерный фильм",
+      "video-with-host": "Видео с ведущим",
+      presentation: "PDF-презентация",
+      "3d-tour": "3D-тур",
+    };
+
+    const selectionTimer = window.setTimeout(() => {
+      if (service && labels[service]) {
+        setSelectedFromPage(labels[service]);
+        setVideo(
+          service === "video-presentation" ? "photo-video" :
+            service === "interior-film" ? "film" :
+              service === "video-with-host" ? "host" : "none",
+        );
+        setPresentation(service === "presentation");
+        setTour(service === "3d-tour");
+      }
+    }, 0);
+
+    const scrollTimer = url.hash === "#calculator"
+      ? window.setTimeout(() => document.getElementById("calculator")?.scrollIntoView({ block: "start" }), 80)
+      : undefined;
+
+    return () => {
+      window.clearTimeout(selectionTimer);
+      if (scrollTimer) window.clearTimeout(scrollTimer);
+    };
+  }, []);
 
   const price = useMemo(() => {
     let total = basePhotoPrice(type, area) + (outside ? 3000 : 0);
@@ -40,6 +76,7 @@ export function PriceCalculator({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`calculator ${compact ? "calculator--compact" : ""}`}>
       <div className="calculator__controls">
+        {selectedFromPage && <p className="calculator__preselected"><span>Выбрано</span>Услуга «{selectedFromPage}» уже добавлена в расчёт</p>}
         <fieldset>
           <legend>Объект</legend>
           <div className="segmented">

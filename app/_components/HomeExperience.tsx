@@ -40,6 +40,64 @@ const faqs = [
   ["Можно внести правки?", "Да. Включён один раунд коррекции фотографий и два раунда правок видео или презентации."],
 ];
 
+const processSteps = [
+  {
+    number: "01",
+    title: "Согласуем задачу",
+    copy: "Адрес, площадь, сроки и нужные форматы. Стоимость известна заранее.",
+    note: "Обычно 10–15 минут в переписке",
+    image: "facade" as const,
+  },
+  {
+    number: "02",
+    title: "Снимем объект",
+    copy: "Фотосъёмка занимает 2–3 часа. При необходимости работаем без собственника.",
+    note: "Можно просто передать ключи",
+    image: "hero" as const,
+  },
+  {
+    number: "03",
+    title: "Передадим готовое",
+    copy: "Два комплекта фото и остальные материалы — одной аккуратной ссылкой.",
+    note: "Фото — на следующий день",
+    image: "bedroom" as const,
+  },
+];
+
+function ProcessShowcase() {
+  const [active, setActive] = useState(0);
+  const step = processSteps[active];
+
+  return (
+    <div className="process-showcase">
+      <div className="process-showcase__visual" aria-live="polite">
+        {processSteps.map((item, index) => (
+          <MediaPicture key={item.number} name={item.image} alt="" className={index === active ? "is-active" : ""} />
+        ))}
+        <span className="process-showcase__count">{step.number} / 03</span>
+        <span className="process-showcase__note">{step.note}</span>
+      </div>
+      <ol className="process-list">
+        {processSteps.map((item, index) => (
+          <li className={index === active ? "is-active" : ""} key={item.number}>
+            <button
+              type="button"
+              onMouseEnter={() => setActive(index)}
+              onFocus={() => setActive(index)}
+              onClick={() => setActive(index)}
+              aria-pressed={index === active}
+            >
+              <span>{item.number}</span>
+              <div><h3>{item.title}</h3><p>{item.copy}</p></div>
+              <i>↗</i>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function IntroLoader() {
   const loaderRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -51,26 +109,29 @@ function IntroLoader() {
     const chosen = chosenRef.current;
     if (!loader || !track || !chosen) return;
 
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const skipRequested = new URLSearchParams(window.location.search).get("skipIntro") === "1";
+    const seen = window.localStorage.getItem("housephoto-intro-v1") || window.sessionStorage.getItem("housephoto-intro");
+    if (seen || skipRequested || reduced) {
+      if (seen || skipRequested) window.localStorage.setItem("housephoto-intro-v1", "seen");
+      loader.style.display = "none";
+      return;
+    }
+
+    window.localStorage.setItem("housephoto-intro-v1", "seen");
+    document.documentElement.classList.add("intro-running");
+
     let cancelled = false;
     let cleanupAnimation: (() => void) | undefined;
 
     void import("gsap").then(({ default: gsap }) => {
       if (cancelled) return;
 
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const seen = window.sessionStorage.getItem("housephoto-intro");
-      if (seen || reduced) {
-        gsap.set(loader, { display: "none" });
-        return;
-      }
-
-      document.documentElement.classList.add("intro-running");
       const centerChosen = () => window.innerWidth / 2 - (chosen.offsetLeft + chosen.offsetWidth / 2);
 
       const timeline = gsap.timeline({
         defaults: { ease: "power3.inOut" },
         onComplete: () => {
-          window.sessionStorage.setItem("housephoto-intro", "seen");
           document.documentElement.classList.remove("intro-running");
         },
       });
@@ -140,7 +201,6 @@ function Header() {
       <Link className="wordmark" href="/" aria-label="HousePhoto — главная">HOUSEPHOTO</Link>
       <nav aria-label="Главная навигация">
         <a href="#formats">Форматы</a>
-        <a href="#case">Проект</a>
         <a href="#process">Как работаем</a>
         <a href="#faq">Вопросы</a>
       </nav>
@@ -158,6 +218,7 @@ function ArrowLink({ href, children }: { href: string; children: React.ReactNode
 
 export function HomeExperience() {
   const rootRef = useRef<HTMLElement>(null);
+  const [photoIndex, setPhotoIndex] = useState(0);
 
   useLayoutEffect(() => {
     let cancelled = false;
@@ -173,12 +234,13 @@ export function HomeExperience() {
         const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         if (reduced) return;
 
+        const introIsRunning = document.documentElement.classList.contains("intro-running");
         gsap.from(".hero__eyebrow, .hero__title, .hero__bottom", {
           opacity: 0,
           y: 28,
           duration: 1,
           stagger: 0.12,
-          delay: 1.7,
+          delay: introIsRunning ? 1.7 : 0.15,
           ease: "power3.out",
         });
 
@@ -192,11 +254,30 @@ export function HomeExperience() {
           });
         });
 
-        gsap.utils.toArray<HTMLElement>(".photo-frame img").forEach((image) => {
-          gsap.fromTo(image, { scale: 1.08 }, {
-            scale: 1,
+        const slider = rootRef.current?.querySelector<HTMLElement>(".photo-slider");
+        const track = rootRef.current?.querySelector<HTMLElement>(".photo-slider__track");
+        const current = rootRef.current?.querySelector<HTMLElement>(".photo-slider__current");
+        const progress = rootRef.current?.querySelector<HTMLElement>(".photo-slider__progress i");
+        const media = gsap.matchMedia();
+
+        media.add("(min-width: 901px)", () => {
+          if (!slider || !track) return;
+          gsap.to(track, {
+            xPercent: -66.6667,
             ease: "none",
-            scrollTrigger: { trigger: image.closest(".photo-frame"), start: "top bottom", end: "bottom top", scrub: true },
+            scrollTrigger: {
+              trigger: slider,
+              start: "top top",
+              end: "bottom bottom",
+              scrub: 0.55,
+              onUpdate: (self) => {
+                if (current) current.textContent = String(Math.min(3, Math.floor(self.progress * 3) + 1)).padStart(2, "0");
+                if (progress) gsap.set(progress, { scaleY: self.progress });
+              },
+            },
+          });
+          gsap.utils.toArray<HTMLElement>(".photo-slide img").forEach((image) => {
+            gsap.fromTo(image, { scale: 1.07 }, { scale: 1, ease: "none", scrollTrigger: { trigger: slider, start: "top top", end: "bottom bottom", scrub: true } });
           });
         });
 
@@ -262,19 +343,30 @@ export function HomeExperience() {
         </div>
       </section>
 
-      <section className="photo-flow" aria-label="Пример фотосъёмки объекта">
-        <article className="photo-frame">
+      <section className="photo-slider" aria-label="Пример фотосъёмки объекта">
+        <div className="photo-slider__sticky">
+          <div
+            className="photo-slider__track"
+            onScroll={(event) => {
+              const track = event.currentTarget;
+              if (window.innerWidth <= 900) setPhotoIndex(Math.round(track.scrollLeft / track.clientWidth));
+            }}
+          >
+        <article className="photo-slide">
           <MediaPicture name="facade" alt="Фасад жилого комплекса Prime Park" />
           <span>Фасад</span><b>01</b>
         </article>
-        <article className="photo-frame">
+        <article className="photo-slide">
           <MediaPicture name="bedroom" alt="Спальня с панорамным окном" />
           <span>Интерьер</span><b>02</b>
         </article>
-        <article className="photo-frame">
+        <article className="photo-slide">
           <MediaPicture name="courtyard" alt="Благоустроенный двор с фонтаном" />
           <span>Окружение</span><b>03</b>
         </article>
+          </div>
+          <div className="photo-slider__ui"><span><b className="photo-slider__current">{String(photoIndex + 1).padStart(2, "0")}</b> / 03</span><i className="photo-slider__progress"><i /></i><small>Листайте</small></div>
+        </div>
       </section>
 
       <section className="dark-chapter" id="formats">
@@ -345,41 +437,17 @@ export function HomeExperience() {
         </div>
       </section>
 
-      <section className="case-section" id="case">
-        <div className="case-section__top section-shell">
-          <p className="section-index">04 / Проект целиком</p>
-          <div data-reveal>
-            <p className="case-label">Prime Park · Москва</p>
-            <h2>Один объект — единая система материалов.</h2>
-          </div>
-        </div>
-        <div className="case-hero">
-          <MediaPicture name="bedroom" alt="Спальня квартиры Prime Park" />
-          <div className="case-hero__caption"><span>Фотосъёмка</span><span>Интерьерный фильм</span><span>PDF-презентация</span></div>
-        </div>
-        <div className="case-facts section-shell">
-          <div><b>01</b><p>Сняли интерьер, фасад, территорию и вид из окон.</p></div>
-          <div><b>02</b><p>Показали маршрут по квартире в ручном интерьерном фильме.</p></div>
-          <div><b>03</b><p>Собрали объект и его окружение в 20-страничную презентацию.</p></div>
-          <ArrowLink href="/proekty/prime-park">Открыть весь проект</ArrowLink>
-        </div>
-      </section>
-
       <section className="process section-shell" id="process">
-        <p className="section-index">05 / Как работаем</p>
+        <p className="section-index">04 / Как работаем</p>
         <div className="process__head" data-reveal>
           <h2>Можно просто передать ключи.</h2>
           <p>Ваше присутствие не требуется. До съёмки согласуем задачу и пришлём короткий чек-лист подготовки.</p>
         </div>
-        <ol className="process-list">
-          <li><span>01</span><div><h3>Согласуем задачу</h3><p>Адрес, площадь, сроки и нужные форматы. Стоимость известна заранее.</p></div></li>
-          <li><span>02</span><div><h3>Снимем объект</h3><p>Фотосъёмка занимает 2–3 часа. При необходимости работаем без собственника.</p></div></li>
-          <li><span>03</span><div><h3>Передадим готовое</h3><p>Два комплекта фото — в высоком разрешении и для площадок. Остальные материалы — одной ссылкой.</p></div></li>
-        </ol>
+        <ProcessShowcase />
       </section>
 
       <section className="calculator-section section-shell" id="calculator">
-        <p className="section-index">06 / Стоимость</p>
+        <p className="section-index">05 / Стоимость</p>
         <div className="calculator-section__head" data-reveal>
           <h2>Соберите комплект<br />для вашего объекта.</h2>
           <p>Сначала выберите задачу — цена будет понятна до заявки. Если формат незнаком, рядом есть короткое объяснение и пример.</p>
@@ -388,7 +456,7 @@ export function HomeExperience() {
       </section>
 
       <section className="proof section-shell">
-        <p className="section-index">07 / Без обещаний на словах</p>
+        <p className="section-index">06 / Без обещаний на словах</p>
         <div className="proof__head" data-reveal>
           <h2>Смотрите реальные материалы до заказа.</h2>
           <p>Не будем обещать абстрактную «конверсию». Покажем, как выглядит результат, сколько занимает работа и что именно вы получите.</p>
@@ -403,7 +471,7 @@ export function HomeExperience() {
 
       <section className="faq section-shell" id="faq">
         <div className="faq__sticky">
-          <p className="section-index">08 / Вопросы</p>
+          <p className="section-index">07 / Вопросы</p>
           <h2>Всё, что обычно<br />спрашивают до съёмки.</h2>
           <p>Если вашего вопроса нет — напишите. Ответим по задаче, без длинного брифа.</p>
         </div>
@@ -430,7 +498,7 @@ export function HomeExperience() {
       <footer className="site-footer section-shell">
         <div className="wordmark wordmark--footer">HOUSEPHOTO</div>
         <div><span>Москва и Московская область</span><span>Фото · видео · презентации недвижимости</span></div>
-        <div><a href="#formats">Услуги</a><a href="#case">Проекты</a><a href="#calculator">Стоимость</a></div>
+        <div><a href="#formats">Услуги</a><a href="#process">Как работаем</a><a href="#calculator">Стоимость</a></div>
         <div><span>Контакт подключим перед публикацией</span><a href="#calculator">Оставить заявку ↗</a></div>
         <small>© {new Date().getFullYear()} HousePhoto</small>
       </footer>
